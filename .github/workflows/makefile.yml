@@ -1,27 +1,71 @@
-name: Makefile CI
+name: Build Environment
 
-on:
-  push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+on: [push, pull_request]
+
+env:
+  PIPENV_ACTIVE: 1
 
 jobs:
-  build:
-
+  linux:
     runs-on: ubuntu-latest
-
+    strategy:
+      fail-fast: false
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: configure
-      run: ./configure
-      
+    - uses: actions/checkout@v2
     - name: Install dependencies
-      run: make
-      
-    - name: Run check
-      run: make check
-      
-    - name: Run distcheck
-      run: make distcheck
+      run: |
+        sudo apt-get update
+        sudo apt-get install libwxgtk3.0-dev libreadline-dev -y
+    - name: Build
+      run: |
+        make -j
+        make install
+        bin/bossac --help
+    - uses: actions/upload-artifact@v1
+      if: always()
+      with:
+        name: linux
+        path: bin
+
+  macos:
+    runs-on: macOS-latest
+    strategy:
+      fail-fast: false
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      run: |
+        brew update
+        brew install wxmac
+    - name: Build
+      run: |
+        make -j
+        make install
+        bin/bossac --help
+    - uses: actions/upload-artifact@v1
+      if: always()
+      with:
+        name: macos
+        path: bin
+
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+    steps:
+    - uses: actions/checkout@v2
+    - uses: numworks/setup-msys2@v1
+      with:
+        msystem: MSYS32
+    - run: msys2do pacman --noconfirm -S -noconfirm --noprogressbar
+    - run: msys2do pacman --noconfirm -U mingw-w64-*-any.pkg.tar.xz
+    - run: |
+        set MSYSTEM=MINGW32
+        msys2do make -j
+        msys2do make install
+        bin/bossac --help
+    - uses: actions/upload-artifact@v1
+      if: always()
+      with:
+        name: windows
+        path: bin
